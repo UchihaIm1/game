@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Один день Достона 3D</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0b0b0e;color:#fff;font-family:"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center}
+#wrap{position:relative;width:min(100vw,calc(100vh*16/9));aspect-ratio:16/9;background:#000;user-select:none;touch-action:none}
+canvas{display:block}
+.ov{position:absolute;left:0;right:0;pointer-events:none}
+#goal{top:.6em;left:.8em;right:auto;background:#0009;padding:.35em .8em;border-radius:.6em;font-size:.9em}
+#prompt{bottom:1.2em;text-align:center;font-size:1.1em}
+#prompt span{background:#000a;padding:.4em 1em;border-radius:2em;border:1px solid #fff5}
+#toast{top:3.2em;text-align:center}
+#toast span{display:inline-block;background:#fff;color:#111;padding:.5em 1.2em;border-radius:.8em;font-size:1em;box-shadow:0 .3em 1em #0007}
+#lockhint{top:5.5em;text-align:center}
+#lockhint[hidden]{display:none}
+#lockhint span{background:#ffcc00;color:#111;padding:.5em 1.2em;border-radius:2em;font-weight:700}
+#banner{top:40%;text-align:center;font-size:3em;font-weight:700;text-shadow:0 0 .4em #000}
+#fade{inset:0;bottom:0;background:#000;opacity:0;transition:opacity .25s;z-index:5}
+#screen{inset:0;bottom:0;z-index:8;pointer-events:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+#screen[hidden],#modal[hidden],#pc[hidden],#mirbar[hidden]{display:none}
+#modal{inset:0;bottom:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:6;pointer-events:auto}
+#mirbar{bottom:1em;text-align:center;pointer-events:auto;z-index:4}
+#mirbar div{display:inline-block;background:#000b;padding:.6em 1.2em;border-radius:.8em}
+.card{background:#1d2027;border-radius:1em;padding:1.2em 1.6em;text-align:center;box-shadow:0 1em 3em #000}
+.card h2{margin:.1em 0 .8em;font-size:1.3em}
+.opts{display:flex;gap:1em;justify-content:center}
+.opt{background:#2b303b;border:2px solid #444b5c;color:#fff;border-radius:.8em;padding:.8em 1em;cursor:pointer;font-size:.95em;width:13em}
+.opt:hover{border-color:#ffcc00;background:#343a48}
+.opt small{display:block;color:#aab;margin-top:.3em}
+.chips{display:flex;justify-content:center;gap:.4em;margin-bottom:.6em}
+.chip{width:2.2em;height:2.2em;border-radius:50%;border:2px solid #fff6}
+.btn{background:#ffcc00;color:#111;border:0;border-radius:.6em;padding:.55em 1.3em;font-weight:700;cursor:pointer;font-size:1em;margin-top:.8em}
+#touch{position:absolute;bottom:.6em;left:0;right:0;display:none;justify-content:space-between;padding:0 .8em;pointer-events:none;z-index:4}
+#touch>div{pointer-events:auto;display:grid;grid-template-columns:repeat(3,3em);gap:.2em}
+#touch button{width:3em;height:3em;border-radius:50%;border:0;background:#fff4;color:#fff;font-size:1.1em}
+@media (pointer:coarse){#touch{display:flex}}
+/* ПК */
+#pc{inset:0;bottom:0;background:linear-gradient(#2a2f3a,#14161c);z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8em;pointer-events:auto}
+.monitors{display:flex;gap:1.2em}
+.mon{width:24em;height:17em;background:#111;border:.5em solid #222;border-bottom-width:1.2em;border-radius:.6em;box-shadow:0 .6em 1.6em #000;position:relative}
+.scr{position:absolute;inset:0;overflow:hidden;font-size:.8em}
+.off{background:#050505}
+.wall{background:repeating-linear-gradient(135deg,#ffcc00 0 2em,#111 2em 4em);display:flex;align-items:center;justify-content:center}
+.wall b{background:#ffcc00;color:#111;font-size:2em;padding:.1em .6em;border-radius:.3em;letter-spacing:.05em}
+.boot{width:100%;height:100%;background:#111;color:#ffcc00;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:2em;font-weight:700}
+.boot i{display:block;width:6em;height:.3em;background:#333;margin-top:.5em;position:relative;overflow:hidden}
+.boot i:after{content:"";position:absolute;left:-40%;width:40%;height:100%;background:#ffcc00;animation:ld 1s linear infinite}
+@keyframes ld{to{left:100%}}
+.login{width:100%;height:100%;background:linear-gradient(135deg,#222,#000);display:flex;align-items:center;justify-content:center}
+.login form{background:#fff;color:#111;padding:1.2em 1.5em;border-radius:.8em;width:75%;text-align:center}
+.login b{display:inline-block;background:#ffcc00;padding:.1em .6em;border-radius:.3em;margin-bottom:.6em;font-size:1.4em}
+.login input{width:100%;margin:.3em 0;padding:.5em;border:1px solid #bbb;border-radius:.4em;font-size:1em}
+.login .err{color:#c00;font-size:.85em;min-height:1.2em}
+.login button{background:#111;color:#ffcc00;border:0;border-radius:.4em;padding:.5em 1.4em;cursor:pointer;font-size:1em;font-weight:700}
+.desk{width:100%;height:100%;background:linear-gradient(135deg,#ffcc00,#ff9d00);position:relative}
+.icon{position:absolute;top:1em;left:1em;width:5.5em;text-align:center;font-size:1em;cursor:pointer;padding:.3em;border-radius:.4em;color:#111;font-weight:600}
+.icon:hover{background:#fff4}
+.icon div{font-size:2.4em}
+.tb{position:absolute;bottom:0;left:0;right:0;height:2em;background:#111;color:#fff;display:flex;align-items:center;gap:1em;padding:0 .8em;font-size:.9em}
+.tb b{color:#ffcc00}.tb span:last-child{margin-left:auto}
+.win{position:absolute;inset:.6em .6em 2.6em;background:#fff;color:#111;border-radius:.4em;display:flex;flex-direction:column;box-shadow:0 .4em 1.4em #0008}
+.wh{background:#111;color:#ffcc00;padding:.3em .7em;display:flex;justify-content:space-between;border-radius:.4em .4em 0 0}
+.wh span{color:#fff;cursor:pointer}
+.wb{flex:1;display:flex;min-height:0}
+.side{width:7em;background:#f3f3f3;border-right:1px solid #ddd;overflow:auto}
+.side div{padding:.6em;cursor:pointer;font-size:.85em;border-bottom:1px solid #e5e5e5}
+.side div.on{background:#ffcc00;font-weight:700}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.msgs{flex:1;overflow:auto;padding:.5em;display:flex;flex-direction:column;gap:.35em;background:#fafafa}
+.m{max-width:80%;padding:.4em .7em;border-radius:.7em;font-size:.9em;word-wrap:break-word}
+.m.o{background:#e8e8e8;align-self:flex-start}
+.m.me{background:#ffcc00;align-self:flex-end}
+.inp{display:flex;border-top:1px solid #ddd}
+.inp input{flex:1;border:0;padding:.6em;font-size:.95em;outline:none;min-width:0}
+.inp button{border:0;background:#ffcc00;padding:0 1em;cursor:pointer;font-size:1em}
+#cursor{position:absolute;width:1.4em;height:1.4em;z-index:9;pointer-events:none;transition:left 1.6s ease-in-out,top 1.6s ease-in-out,transform .15s;font-size:1.2em}
+#cursor.click{transform:scale(.7)}
+#cursor:before{content:"";display:block;width:0;height:0;border-left:.55em solid transparent;border-right:.55em solid transparent;border-bottom:1.1em solid #fff;transform:rotate(-20deg);filter:drop-shadow(0 0 1px #000)}
+#pwr{font-size:1.1em}
+#pcexit{background:#444;color:#fff}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="goal" class="ov" hidden></div>
+  <div id="toast" class="ov"></div>
+  <div id="banner" class="ov"></div>
+  <div id="lockhint" class="ov" hidden><span>🖱 Кликните по экрану, чтобы управлять камерой мышью</span></div>
+  <div id="prompt" class="ov"></div>
+  <div id="mirbar" class="ov" hidden><div>Ты в зеркале. <button class="btn" id="mirclose" style="margin:0 0 0 .6em">Отойти (E / Esc)</button></div></div>
+  <div id="fade" class="ov"></div>
+  <div id="modal" class="ov" hidden></div>
+  <div id="screen" class="ov"></div>
+  <div id="pc" class="ov" hidden>
+    <div class="monitors">
+      <div class="mon"><div class="scr off" id="s1"></div></div>
+      <div class="mon"><div class="scr off" id="s2"></div></div>
+    </div>
+    <div><button class="btn" id="pwr">⏻ Включить компьютер</button> <button class="btn" id="pcexit">Встать из-за стола (Esc)</button></div>
+    <div id="cursor" hidden></div>
+  </div>
+  <div id="touch">
+    <div><span></span><button id="bw">▲</button><span></span><button id="ba">◀</button><button id="bs">▼</button><button id="bd">▶</button></div>
+    <div><span></span><button id="be">E</button><span></span><button id="bsp">␣</button><span></span><span></span></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+if(typeof THREE==='undefined'){
+  document.getElementById('wrap').innerHTML='<div style="padding:2em;font-size:1.2em">Не удалось загрузить Three.js. Проверьте интернет и обновите страницу.</div>';
+  throw new Error('no three');
+}
+/* ============ НАСТРОЙКИ ============ */
+// Фото фасадов. Если ссылка не откроется (чужие сайты часто запрещают), здание останется нарисованным.
+// Надёжный вариант: положить файлы рядом с index.html и написать "institute.jpg" / "beeline.jpg".
+// Каждое здание — список источников: сначала пробуется локальный файл, потом ссылка.
+const PHOTOS = {
+  institute: ["institute.jpg","https://avatars.mds.yandex.net/get-altay/15045776/2a0000019780773f000badc3cddb6e5264ac/XXL_height"],
+  beeline:   ["beeline.jpg","https://beeline.uz/uploads/2025-2/1f9f5c45-303e-4586-9bd9-42ea47eca413.jpg"]
+};
+const HERO = {name:"Достон", surname:"Хайдаров"};
+
+/* ============ БАЗА ============ */
+const $=id=>document.getElementById(id);
+const wrap=$('wrap');
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const angLerp=(a,b,t)=>{const d=((b-a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;return a+d*t};
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.setClearColor(0x000000);
+wrap.insertBefore(renderer.domElement,wrap.firstChild);
+renderer.domElement.style.cssText='width:100%;height:100%';
+const scene3=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(60,16/9,.1,300);
+function resize(){const w=wrap.clientWidth,h=wrap.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();wrap.style.fontSize=(w/960*16)+'px'}
+addEventListener('resize',resize);resize();
+
+const amb=new THREE.AmbientLight(0xffffff,.6);scene3.add(amb);
+const hemi=new THREE.HemisphereLight(0xbfe3ff,0x666655,.5);scene3.add(hemi);
+const sun=new THREE.DirectionalLight(0xffffff,.8);sun.position.set(10,20,8);scene3.add(sun);
+
+const S={outfit:null,shoes:null,mirrored:false,classDone:false,napDone:false,logged:false,chatOpened:false};
+let cityModel = null;
+const loader = new THREE.GLTFLoader();
+loader.load('city/city.glb', gltf => {
+  cityModel = gltf.scene;
+  cityModel.scale.set(0.045, 0.045, 0.045);
+  cityModel.position.set(0, 0, 0);
+  // Добавляем город в уличные сцены
+  ['inst','bee'].forEach(k => {
+    if(SCN[k]){
+      const city = cityModel.clone();
+      SCN[k].g.add(city);
+    }
+  });
+  console.log('City loaded and added');
+}, undefined, err => console.error('City load error', err));
+let phase='title',SN='',mode='walk',lock=false,modalOpen=false,inCar=false,t=0,faceA=0;
+let yaw=0,pitch=.38;
+const keys={};
+
+/* ============ ПОМОЩНИКИ 3D ============ */
+const mat=c=>new THREE.MeshLambertMaterial({color:c});
+const basic=c=>new THREE.MeshBasicMaterial({color:c});
+function bx(p,w,h,d,c,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),(typeof c==='number')?mat(c):c);m.position.set(x,y,z);p.add(m);return m}
+function cyl(p,rt,rb,h,c,x,y,z,seg){const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg||12),(typeof c==='number')?mat(c):c);m.position.set(x,y,z);p.add(m);return m}
+function sph(p,r,c,x,y,z){const m=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),(typeof c==='number')?mat(c):c);m.position.set(x,y,z);p.add(m);return m}
+function plane(p,w,h,m,x,y,z,ry){const o=new THREE.Mesh(new THREE.PlaneGeometry(w,h),m);o.position.set(x,y,z);o.rotation.y=ry||0;p.add(o);return o}
+function labelTex(text,w,h,bg,fg,font){
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  x.fillStyle=bg;x.fillRect(0,0,w,h);x.fillStyle=fg;x.font=font;x.textAlign='center';x.textBaseline='middle';x.fillText(text,w/2,h/2);
+  return new THREE.CanvasTexture(c);
+}
+function sign(p,text,w,h,bg,fg,x,y,z,ry){
+  const tex=labelTex(text,Math.round(w*140),Math.round(h*140),bg,fg,'bold '+Math.round(h*85)+'px Arial');
+  return plane(p,w,h,new THREE.MeshBasicMaterial({map:tex}),x,y,z,ry);
+}
+function wnd(p,x,y,z,w,h,c,ry){return plane(p,w,h,basic(c),x,y,z,ry)}
+
+/* ============ ЧЕЛОВЕК ============ */
+function makePerson(cols){
+  cols=cols||{};const skin=0xe0b48f;
+  const g=new THREE.Group(),P={g,legs:[],arms:[],sw:0,pose:'stand'};
+  P.shirt=mat(cols.top||0x8fb4e8);P.pants=mat(cols.bot||0x4d6aa8);P.shoe=mat(skin);P.foreM=mat(skin);
+  bx(g,.42,.6,.24,P.shirt,0,1.2,0);
+  P.front=bx(g,.1,.34,.015,0xffffff,0,1.3,.125);P.tie=bx(g,.05,.32,.02,0xa01c1c,0,1.28,.14);P.front.visible=P.tie.visible=false;
+  cyl(g,.05,.05,.1,skin,0,1.52,0,8);
+  sph(g,.14,skin,0,1.66,0);
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(.152,14,8,0,Math.PI*2,0,Math.PI*.55),mat(cols.hair||0x1a1410));hair.position.set(0,1.68,-.012);g.add(hair);
+  sph(g,.018,0x111111,-.05,1.68,.132);sph(g,.018,0x111111,.05,1.68,.132);
+  for(const sx of[-.11,.11]){
+    const leg=new THREE.Group();leg.position.set(sx,.9,0);g.add(leg);
+    bx(leg,.18,.45,.2,P.pants,0,-.225,0);
+    const knee=new THREE.Group();knee.position.set(0,-.45,0);leg.add(knee);
+    bx(knee,.16,.43,.18,P.pants,0,-.22,0);bx(knee,.17,.09,.3,P.shoe,0,-.455,.06);
+    leg.knee=knee;P.legs.push(leg);
+  }
+  for(const sx of[-.28,.28]){
+    const arm=new THREE.Group();arm.position.set(sx,1.45,0);g.add(arm);
+    bx(arm,.12,.3,.14,P.shirt,0,-.15,0);
+    const elb=new THREE.Group();elb.position.set(0,-.3,0);arm.add(elb);
+    bx(elb,.1,.28,.12,P.foreM,0,-.14,0);sph(elb,.055,skin,0,-.3,0);
+    arm.elb=elb;P.arms.push(arm);
+  }
+  return P;
+}
+function applyLook(P,out,shoes){
+  const skin=0xe0b48f;
+  if(out==='suit'){P.shirt.color.setHex(0x1b1b22);P.pants.color.setHex(0x1b1b22);P.foreM.color.setHex(0x1b1b22);P.tie.visible=P.front.visible=true;}
+  else if(out==='casual'){P.shirt.color.setHex(0xf2f2f2);P.pants.color.setHex(0x7b838d);P.foreM.color.setHex(skin);P.tie.visible=P.front.visible=false;}
+  else{P.shirt.color.setHex(0x8fb4e8);P.pants.color.setHex(0x4d6aa8);P.foreM.color.setHex(0x8fb4e8);P.tie.visible=P.front.visible=false;}
+  P.shoe.color.setHex(shoes==='black'?0x0d0d0d:shoes==='white'?0xfafafa:out?0xeeeeee:skin);
+}
+function setPose(P,p){
+  P.pose=p;const sit=p==='sit';
+  P.legs.forEach(l=>{l.rotation.x=sit?-Math.PI/2:0;l.knee.rotation.x=sit?Math.PI/2:0});
+  P.arms.forEach(a=>{a.rotation.x=sit?-1.1:0;a.elb.rotation.x=sit?-.4:0});
+}
+function animWalk(P,tm,moving,dt){
+  if(P.pose!=='stand')return;
+  const target=moving?Math.sin(tm*9)*.7:0;
+  P.sw+=(target-P.sw)*Math.min(1,dt*14);
+  P.legs[0].rotation.x=P.sw;P.legs[1].rotation.x=-P.sw;
+  P.arms[0].rotation.x=-P.sw*.8;P.arms[1].rotation.x=P.sw*.8;
+}
+const player=makePerson();
+scene3.add(player.g);player.g.visible=false;
+const blob=new THREE.Mesh(new THREE.CircleGeometry(.4,16),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.3}));
+blob.rotation.x=-Math.PI/2;scene3.add(blob);
+function sitNpc(sc,x,z,cols){const n=makePerson(cols);setPose(n,'sit');n.g.position.set(x,-.42,z);n.g.rotation.y=Math.PI;sc.g.add(n.g);return n}
+
+/* ============ СЦЕНЫ ============ */
+const SCN={};
+function newScene(name,o){const g=new THREE.Group();g.visible=false;scene3.add(g);return SCN[name]=Object.assign({name,g,col:[],objs:()=>[],b:{x1:-1,x2:1,z1:-1,z2:1},indoor:true,bg:0x222222,H:3,light:[.8,.4,.35],goal:()=>null},o)}
+function addCol(sc,cx,cz,w,d){sc.col.push({x1:cx-w/2,x2:cx+w/2,z1:cz-d/2,z2:cz+d/2})}
+function shell(sc,H,wallC,floorC,ceilC){
+  const b=sc.b,w=b.x2-b.x1,d=b.z2-b.z1,cx=(b.x1+b.x2)/2,cz=(b.z1+b.z2)/2,g=sc.g;
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(w,d),mat(floorC));fl.rotation.x=-Math.PI/2;fl.position.set(cx,0,cz);g.add(fl);
+  const ce=new THREE.Mesh(new THREE.PlaneGeometry(w,d),mat(ceilC));ce.rotation.x=Math.PI/2;ce.position.set(cx,H,cz);g.add(ce);
+  bx(g,w+.4,H,.2,wallC,cx,H/2,b.z1-.1);bx(g,w+.4,H,.2,wallC,cx,H/2,b.z2+.1);
+  bx(g,.2,H,d,wallC,b.x1-.1,H/2,cz);bx(g,.2,H,d,wallC,b.x2+.1,H/2,cz);
+  bx(g,w,.12,.05,0x9a8a70,cx,.06,b.z1+.03);
+  sc.H=H;
+}
+function ceilLight(g,x,y,z,w,d){bx(g,w||.8,.05,d||.8,basic(0xfffbe8),x,y,z)}
+
+/* ---- Машина ---- */
+function makeCar(color){
+  const g=new THREE.Group();
+  bx(g,4.4,.8,1.9,color,0,.75,0);bx(g,2.5,.75,1.75,color,-.2,1.5,0);
+  bx(g,2.3,.5,1.78,0x9fc9e6,-.2,1.52,0);bx(g,.12,.55,1.8,color,-.2,1.52,0);
+  bx(g,2.5,.06,1.75,color,-.2,1.9,0);
+  for(const wx of[-1.35,1.35])for(const wz of[-.95,.95]){
+    const w=cyl(g,.38,.38,.25,0x161616,wx,.38,wz,16);w.rotation.x=Math.PI/2;
+    const r=cyl(g,.2,.2,.27,0xc9ccd2,wx,.38,wz,12);r.rotation.x=Math.PI/2;
+  }
+  for(const z of[-.6,.6]){bx(g,.05,.18,.4,0xffe27a,2.2,.85,z);bx(g,.05,.18,.4,0xc0262d,-2.2,.85,z);}
+  bx(g,.06,.05,1.9,0x555a60,2.2,.5,0);
+  return g;
+}
+
+/* ---- Комната ---- */
+function buildRoom(){
+  const sc=newScene('room',{b:{x1:-4,x2:4,z1:-3,z2:3},bg:0x111111,light:[.85,.45,.4]}),g=sc.g;
+  shell(sc,3,0xd9c9ae,0xa67c52,0xf2eee6);
+  ceilLight(g,0,2.95,0);
+  plane(g,3,2,mat(0x7a5a8a),0,.012,0,0).rotation.x=-Math.PI/2;
+  // кровать
+  bx(g,1.7,.35,2.2,0x6b4f3a,-3,.2,-1.4);bx(g,1.6,.2,2.1,0xf3f0ea,-3,.47,-1.4);
+  bx(g,.8,.14,.4,0xffffff,-3,.64,-2.3);bx(g,1.62,.28,1.3,0x4f78c9,-3,.66,-.95);
+  bx(g,1.7,1,.1,0x4e3727,-3,.8,-2.55);
+  addCol(sc,-3,-1.4,1.7,2.2);
+  // шкаф
+  bx(g,1.8,2.4,.7,0x7a5230,-.8,1.2,-2.65);
+  bx(g,.85,2.2,.03,0x8b5e36,-1.25,1.2,-2.29);bx(g,.85,2.2,.03,0x8b5e36,-.35,1.2,-2.29);
+  sph(g,.035,0xe8c660,-.9,1.1,-2.25);sph(g,.035,0xe8c660,-.7,1.1,-2.25);
+  addCol(sc,-.8,-2.65,1.8,.7);
+  // зеркало
+  bx(g,1,1.9,.06,0xc9a24a,.9,1.3,-2.94);
+  plane(g,.86,1.76,new THREE.MeshBasicMaterial({color:0xbfe3f5}),.9,1.3,-2.905,0);
+  plane(g,.1,1.4,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.5}),.65,1.3,-2.9,0);
+  // стол с компьютером
+  bx(g,1.8,.06,.8,0x5b4636,2.8,.75,-2.55);
+  for(const dx of[-.85,.85])for(const dz of[-.35,.35])bx(g,.06,.72,.06,0x4a392b,2.8+dx,.36,-2.55+dz);
+  bx(g,.7,.42,.04,0x111111,2.8,1.05,-2.8);bx(g,.04,.25,.04,0x222222,2.8,.88,-2.8);
+  bx(g,.45,.02,.15,0x2b2b2b,2.8,.79,-2.3);bx(g,.18,.4,.4,0x1d1d1d,3.5,.98,-2.7);
+  bx(g,.5,.06,.5,0x2a2a2a,2.8,.45,-1.85);bx(g,.5,.55,.06,0x2a2a2a,2.8,.75,-1.62);cyl(g,.04,.04,.4,0x333333,2.8,.22,-1.85,8);
+  addCol(sc,2.8,-2.55,1.8,.8);
+  // постер, окно
+  sign(g,'ПОСТЕР',1,1.4,'#6a8fd6','#ffffff',-3,1.8,-2.97,0);
+  bx(g,.06,1.3,1.7,0x6b4f3a,-3.96,1.7,.8);plane(g,1.6,1.2,basic(0x9fd8ff),-3.92,1.7,.8,Math.PI/2);
+  // обувь у двери
+  bx(g,1.3,.1,.5,0x6b4f3a,3.5,.05,.6);
+  for(const dx of[-.09,.09]){bx(g,.12,.09,.3,0x111111,3.15+dx,.15,.6);bx(g,.12,.12,.3,0xfafafa,3.75+dx,.16,.6);}
+  // дверь
+  bx(g,.1,2.2,1,0x6f4527,3.94,1.1,1.8);sph(g,.05,0xe8c660,3.86,1.05,1.45);
+  sc.spawn=[-1.5,.4,Math.PI/2];
+  sc.objs=()=>[
+    {x:-2.2,z:-.6,r:1.3,label:'Кровать',act:()=>toast('Хватит спать, пора собираться.')},
+    {x:-.8,z:-1.9,r:1.2,label:'Открыть шкаф',act:wardrobe},
+    {x:.9,z:-2.0,r:1.0,label:'Посмотреть в зеркало',act:mirror},
+    {x:2.8,z:-1.6,r:1.0,label:'Компьютерный стол',act:()=>toast('Компьютер подождёт. Сегодня пары и работа.')},
+    {x:3.4,z:.6,r:1.0,label:'Выбрать обувь',act:shoesMenu},
+    {x:3.5,z:1.8,r:1.1,label:'Выйти из комнаты',act:exitRoom}];
+  sc.goal=()=>!S.outfit?['Подойди к шкафу и выбери одежду',-.8,-1.9,2.7]:!S.mirrored?['Посмотри на себя в зеркало',.9,-2.2,2.5]:!S.shoes?['Выбери обувь у двери',3.4,.6,1.2]:['Выйди из комнаты через дверь',3.5,1.8,2.7];
+}
+function exitRoom(){
+  if(!S.outfit)return toast('Сначала выбери, что надеть (шкаф).');
+  if(!S.shoes)return toast('Сначала выбери обувь у двери.');
+  blackout(500,()=>setScene('garage',-4.8,2.4,Math.PI/2));
+}
+
+/* ---- Гараж ---- */
+const GCAR=[0,-.5];
+function buildGarage(){
+  const sc=newScene('garage',{b:{x1:-6,x2:6,z1:-4,z2:4},bg:0x111111,light:[.85,.45,.4]}),g=sc.g;
+  shell(sc,3.6,0x8b9097,0x6d7279,0x9aa0a8);
+  ceilLight(g,-2.5,3.55,0,1.6,.3);ceilLight(g,2.5,3.55,0,1.6,.3);
+  bx(g,7,3.2,.1,0x7a8088,0,1.6,-3.9);for(let i=0;i<8;i++)bx(g,7,.05,.12,0x5f656c,0,.4+i*.4,-3.88);
+  bx(g,.1,2.2,1,0x5b4636,-5.93,1.1,2.5);
+  bx(g,.5,2,2,0x666666,5.7,1,-1);for(let i=0;i<3;i++)bx(g,.55,.05,2,0x777777,5.7,.5+i*.7,-1);
+  bx(g,.4,.35,.4,0xaa3333,5.6,.9,-1.3);bx(g,.4,.35,.4,0x33aa77,5.6,1.6,-.6);
+  const car=makeCar(0x8d9198);car.position.set(GCAR[0],0,GCAR[1]);g.add(car);
+  addCol(sc,GCAR[0],GCAR[1],4.7,2.1);
+  sc.objs=()=>[
+    {x:GCAR[0],z:GCAR[1],r:3.3,label:'Сесть в машину',act:()=>driveTo('inst')},
+    {x:-5.2,z:2.5,r:1.2,label:'Дверь в дом',act:()=>toast('Нет времени, пора ехать.')}];
+  sc.goal=()=>['Сядь в свою машину',GCAR[0],GCAR[1]+1.6,2.8];
+}
+
+/* ---- Улицы ---- */
+const SCAR = [0, 8]; // позиция машины в городе
+const INST_POS = [12, -8]; // вход в институт
+const BEE_POS = [-12, -6]; // вход в офис Beeline
+function addWindows(g,x0,y0,z,cols,rows,dx,dy,w,h,c){for(let i=0;i<cols;i++)for(let j=0;j<rows;j++)wnd(g,x0+i*dx,y0+j*dy,z,w,h,c)}
+function smallBuilding(g,x,w,h,color,label){
+  bx(g,w,h,6,color,x,h/2,-8);
+  const cols=Math.max(2,Math.floor(w/1.5)),rows=Math.max(1,Math.floor((h-2.6)/1.5));
+  addWindows(g,x-w/2+w/(cols*2),2.7,-4.98,cols,rows,w/cols,1.5,.8,.9,0xbfe3f5);
+  bx(g,.9,1.9,.1,0x4a3a2a,x,.95,-4.97);
+  sign(g,label,Math.min(w-.4,3),.6,'#ffffff','#222222',x,h-.45,-4.96,0);
+}
+function tryPhoto(urls,cb,i){
+  i=i||0;if(!urls||i>=urls.length)return;
+  try{const l=new THREE.TextureLoader();l.setCrossOrigin('anonymous');l.load(urls[i],cb,undefined,()=>tryPhoto(urls,cb,i+1));}catch(e){}
+}
+function mainBuilding(sc,kind){
+  const g=sc.g,cx=9,w=14,d=8,front=-5.5,h=kind==='inst'?9:10;
+  bx(g,w,h,d,kind==='inst'?0xe6dcc3:0x2b2b2b,cx,h/2,front-d/2);
+  const wg=new THREE.Group();g.add(wg);
+  addWindows(wg,cx-5.5,3.6,front+.02,6,3,2.2,2.0,1.2,1.3,kind==='inst'?0xbfe3f5:0x8ec9f0);
+  if(kind==='inst'){
+    for(let i=0;i<6;i++)cyl(g,.22,.22,5.2,0xf4ecd8,cx-5.5+i*2.2,2.6,front+.7);
+    bx(g,w+.8,.4,1.6,0xcdbf9d,cx,5.3,front+.5);
+    sign(g,'ИНСТИТУТ',6,.9,'#1f3b6b','#ffffff',cx,h-.7,front+.03,0);
+    bx(g,1.8,.15,1.4,0xbbb,cx,.08,front+.8);
+  }else{
+    bx(g,w,.7,.1,0xffcc00,cx,h-.4,front+.04);
+    sign(g,'beeline',6,1.1,'#ffcc00','#111111',cx,h-1.5,front+.04,0);
+    bx(g,w,.35,.1,0xffcc00,cx,3.5,front+.04);
+  }
+  bx(g,1.8,2.6,.15,kind==='inst'?0x223344:0x111111,cx,1.3,front+.1);
+  plane(g,1.5,2.4,new THREE.MeshBasicMaterial({color:0x6fa8d6,transparent:true,opacity:.55}),cx,1.3,front+.19,0);
+  tryPhoto(PHOTOS[kind==='inst'?'institute':'beeline'],tex=>{
+    wg.visible=false;const iw=tex.image.width,ih=tex.image.height;
+    const ph=Math.min(h,w*ih/iw),pw=ph*iw/ih;
+    plane(g,pw,ph,new THREE.MeshBasicMaterial({map:tex}),cx,ph/2,front+.03,0);
+  });
+}
+function buildStreet(kind){
+  const sc=newScene(kind,{indoor:false,b:{x1:-40,x2:40,z1:-30,z2:20},bg:kind==='inst'?0x8fcdf5:0x9ad0f0,light:[.55,.7,.95]}),g=sc.g;
+  // Город будет добавлен после загрузки модели
+  // запасной пол, если нужно
+  const gr=new THREE.Mesh(new THREE.PlaneGeometry(100,60),mat(0x6a9a5a));gr.rotation.x=-Math.PI/2;gr.position.set(0,-0.1,0);g.add(gr);
+  // машина
+  const car=makeCar(0x8d9198);car.position.set(SCAR[0],0,SCAR[1]);g.add(car);
+  addCol(sc,SCAR[0],SCAR[1],4.7,2.1);
+  // маркеры входов
+  const instMark = new THREE.Mesh(new THREE.CircleGeometry(2,16), new THREE.MeshBasicMaterial({color:0x00ff00,transparent:true,opacity:0.5}));
+  instMark.rotation.x = -Math.PI/2; instMark.position.set(INST_POS[0],0.1,INST_POS[1]); g.add(instMark);
+  sign(g,'ИНСТИТУТ',4,1,'#1f3b6b','#ffffff',INST_POS[0],3,INST_POS[1],0);
+  const beeMark = new THREE.Mesh(new THREE.CircleGeometry(2,16), new THREE.MeshBasicMaterial({color:0xffcc00,transparent:true,opacity:0.5}));
+  beeMark.rotation.x = -Math.PI/2; beeMark.position.set(BEE_POS[0],0.1,BEE_POS[1]); g.add(beeMark);
+  sign(g,'BEELINE',4,1,'#ffcc00','#111111',BEE_POS[0],3,BEE_POS[1],0);
+  // другие машины для атмосферы
+  const c2=makeCar(0xb33a3a);c2.position.set(5,0,6);c2.rotation.y=Math.PI;g.add(c2);
+  const c3=makeCar(0x2e5fa3);c3.position.set(15,0,5);c3.rotation.y=Math.PI;g.add(c3);
+  sc.objs=()=>{
+    if(inCar)return[{x:SCAR[0],z:SCAR[1],r:99,label:'Выйти из машины',act:exitCar}];
+    if(kind==='inst')return[
+      {x:SCAR[0],z:SCAR[1],r:3.4,label:'Сесть в машину',act:()=>S.classDone?driveTo('bee'):toast('Сначала надо сходить на пару в институт.')},
+      {x:INST_POS[0],z:INST_POS[1],r:3,label:'Войти в институт',act:()=>S.classDone?toast('Пара закончилась. Пора ехать на работу!'):blackout(400,()=>setScene('class',-6.2,3.5,Math.PI/2))}];
+    return[
+      {x:SCAR[0],z:SCAR[1],r:3.4,label:'Машина',act:()=>toast('Машина припаркована. Пора на работу!')},
+      {x:BEE_POS[0],z:BEE_POS[1],r:3,label:'Войти в офис Билайн',act:()=>blackout(400,()=>setScene('office',-8,3.5,Math.PI/2))}];
+  };
+  sc.goal=()=>inCar?['Выйди из машины (E)',null]:kind==='inst'?(S.classDone?['Вернись к машине и поезжай на работу',SCAR[0],SCAR[1]+.2,3.2]:['Иди в институт',INST_POS[0],INST_POS[1],3.4]):['Иди ко входу в офис Билайн',BEE_POS[0],BEE_POS[1],3.4];
+}
+function driveTo(k){
+  blackout(1500,()=>{setScene(k,SCAR[0],SCAR[1],0,0);inCar=true;player.g.visible=false;});
+}
+function exitCar(){
+  inCar=false;player.g.visible=true;player.g.position.set(SCAR[0],0,1.2);faceA=Math.PI/2;player.g.rotation.y=faceA;
+}
+
+/* ---- Аудитория ---- */
+const SEAT=[4.5,3.15];
+function buildClass(){
+  const sc=newScene('class',{b:{x1:-7,x2:7,z1:-5,z2:5},bg:0x111111,light:[.85,.45,.4]}),g=sc.g;
+  shell(sc,3.5,0xcfd8c9,0xb08a5b,0xf0f0ea);
+  for(const x of[-4,0,4])ceilLight(g,x,3.45,0,1.2,.3);
+  bx(g,5.4,1.7,.06,0x8b6b4a,0,1.95,-4.95);
+  sign(g,'Высшая математика',5,1.5,'#2f5d46','#e8f0e8',0,1.95,-4.9,0);
+  bx(g,2,.9,.8,0x8b6b4a,-3.5,.45,-3.8);addCol(sc,-3.5,-3.8,2,.8);
+  for(const z of[-2,.5,3]){bx(g,.06,1.4,1.6,0x6b4f3a,6.96,1.8,z);plane(g,1.5,1.3,basic(0x9fd8ff),6.92,1.8,z,-Math.PI/2)}
+  bx(g,.1,2.2,1,0x5b4636,-6.93,1.1,3.5);
+  const teacher=makePerson({top:0x7a4f2a,bot:0x3a3a3a,hair:0x777777});teacher.g.position.set(0,0,-3.9);g.add(teacher.g);
+  addCol(sc,0,-3.9,.6,.6);
+  const zs=[-1.6,.4,2.4],xs=[-4.5,-1.5,1.5,4.5],colors=[0xc0504d,0x4f81bd,0x9bbb59,0x8064a2,0xf79646,0x4bacc6];let n=0;
+  zs.forEach((z,ri)=>xs.forEach((x,ci)=>{
+    bx(g,1.2,.06,.6,0xa3763f,x,.75,z);bx(g,.05,.72,.05,0x7d5a30,x-.55,.36,z);bx(g,.05,.72,.05,0x7d5a30,x+.55,.36,z);
+    bx(g,.5,.05,.5,0x555555,x,.45,z+.75);bx(g,.5,.5,.05,0x555555,x,.75,z+1.0);
+    addCol(sc,x,z,1.2,.6);
+    const isMine=(ri===2&&ci===3);
+    if(!isMine&&!(ri===2&&ci===1)){sitNpc(sc,x,z+.65,{top:colors[n%6],bot:0x334455});addCol(sc,x,z+.8,.6,.6);n++}
+  }));
+  sc.objs=()=>mode==='sit'?[]:[
+    {x:-6.2,z:3.5,r:1.4,label:'Выйти из аудитории',act:()=>S.napDone?blackout(400,()=>setScene('inst',INST_POS[0],INST_POS[1]+2,Math.PI/2,0)):toast('Лекция идёт. Надо сесть за последнюю парту.')},
+    {x:SEAT[0],z:SEAT[1]+.4,r:1.5,label:'Сесть за парту',act:()=>{if(!S.napDone)sitAt(SEAT[0],SEAT[1]-.1,Math.PI)}}];
+  sc.goal=()=>mode==='sit'?null:S.napDone?['Иди к выходу (дверь слева)',-6.2,3.5,2.7]:['Сядь за парту в последнем ряду',SEAT[0],SEAT[1]+.4,2.3];
+}
+function nap(){
+  $('prompt').innerHTML='';$('prompt').dataset.v='';
+  blackout(2000,()=>{S.napDone=true;S.classDone=true;standUp(4.5,4.1,Math.PI);},()=>{banner('Пара закончилась',3000);toast('Можно идти к выходу из аудитории.',4000)});
+}
+
+/* ---- Офис ---- */
+const OWN=[3,2.15];
+function buildOffice(){
+  const sc=newScene('office',{b:{x1:-9,x2:9,z1:-5.5,z2:5.5},bg:0x111111,light:[.85,.45,.4]}),g=sc.g;
+  shell(sc,3.2,0xe9ecef,0x8a8f98,0xf4f4f4);
+  for(const x of[-6,0,6])for(const z of[-3,2])ceilLight(g,x,3.15,z,1.4,.3);
+  sign(g,'beeline',6,1.3,'#ffcc00','#111111',0,2.2,-5.46,0);
+  for(const z of[-3,0,3]){bx(g,.06,1.4,1.8,0x6b4f3a,8.96,1.8,z);plane(g,1.7,1.3,basic(0x9fd8ff),8.92,1.8,z,-Math.PI/2)}
+  bx(g,.1,2.2,1,0x5b4636,-8.93,1.1,4.2);
+  // текстура экрана
+  const c=document.createElement('canvas');c.width=256;c.height=160;const x=c.getContext('2d');
+  x.fillStyle='#ffcc00';x.fillRect(0,0,256,160);x.fillStyle='#111';
+  for(let i=-3;i<9;i++){x.beginPath();x.moveTo(i*40,160);x.lineTo(i*40+20,160);x.lineTo(i*40+100,0);x.lineTo(i*40+80,0);x.fill();}
+  x.fillStyle='#ffcc00';x.fillRect(40,50,176,60);x.fillStyle='#111';x.font='bold 44px Arial';x.textAlign='center';x.textBaseline='middle';x.fillText('beeline',128,82);
+  const scrMat=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c)});
+  const rows=[-2.4,1.2],xs=[-6,-3,0,3,6];
+  rows.forEach((cz,ri)=>xs.forEach(cx=>{
+    bx(g,1.8,.05,.8,0xd9c9a8,cx,.75,cz);bx(g,.05,.72,.7,0x8c7f66,cx-.85,.37,cz);bx(g,.05,.72,.7,0x8c7f66,cx+.85,.37,cz);bx(g,1.7,.4,.03,0xa89a7c,cx,.5,cz-.33);
+    for(const dx of[-.45,.45]){
+      bx(g,.05,.22,.05,0x222222,cx+dx,.88,cz-.15);bx(g,.3,.02,.18,0x222222,cx+dx,.78,cz-.15);
+      bx(g,.62,.38,.03,0x111111,cx+dx,1.08,cz-.15);plane(g,.56,.32,scrMat,cx+dx,1.08,cz-.13,0);
+    }
+    bx(g,.18,.38,.4,0x1d1d1d,cx+.72,.98,cz-.1);bx(g,.02,.02,.02,basic(0x4a90e2),cx+.72,1.12,cz+.11);
+    bx(g,.45,.02,.15,0x2b2b2b,cx-.05,.785,cz+.2);bx(g,.06,.03,.1,0x2b2b2b,cx+.3,.79,cz+.2);
+    const hp=new THREE.Mesh(new THREE.TorusGeometry(.08,.015,6,12,Math.PI),mat(0x222222));hp.position.set(cx-.75,.86,cz+.15);g.add(hp);
+    cyl(g,.04,.04,.03,0x222222,cx-.83,.84,cz+.15,8).rotation.z=Math.PI/2;cyl(g,.04,.04,.03,0x222222,cx-.67,.84,cz+.15,8).rotation.z=Math.PI/2;
+    bx(g,.5,.06,.5,0x333344,cx,.45,cz+.95);bx(g,.5,.55,.06,0x333344,cx,.78,cz+1.2);cyl(g,.04,.04,.4,0x555555,cx,.22,cz+.95,8);
+    addCol(sc,cx,cz,1.8,.8);
+    if(ri===1&&cx===OWN[0]){
+      const hl=bx(g,2.2,.01,2.6,new THREE.MeshBasicMaterial({color:0xffcc00,transparent:true,opacity:.35}),cx,.015,cz+.5);
+    }
+  }));
+  sitNpc(sc,-6,-1.35,{top:0xc0504d,bot:0x2b2b2b});sitNpc(sc,6,-1.35,{top:0x4f81bd,bot:0x2b2b2b});
+  addCol(sc,-6,-1.2,.6,.6);addCol(sc,6,-1.2,.6,.6);
+  sc.objs=()=>mode==='sit'?[]:[
+    {x:-8.2,z:4.2,r:1.3,label:'Выход',act:()=>toast('Рабочий день только начался!')},
+    ...[[-6,-2.4],[-3,-2.4],[0,-2.4],[3,-2.4],[6,-2.4],[-6,1.2],[-3,1.2],[0,1.2],[6,1.2]].map(p=>({x:p[0],z:p[1]+1.7,r:1.1,label:'Чужое рабочее место',act:()=>toast('Это не ваше место. Ваше выделено жёлтым.')})),
+    {x:OWN[0],z:OWN[1]+.7,r:1.4,label:'Сесть за стол',act:()=>{sitAt(OWN[0],OWN[1]-.05,Math.PI);openPC();}}];
+  sc.goal=()=>mode==='sit'?null:['Подойди к своему месту (жёлтое) и сядь',OWN[0],OWN[1]+.7,2.4];
+}
+
+/* ============ ПЕРЕХОДЫ И ПОЗЫ ============ */
+function toast(m,ms=2600){const e=$('toast');e.innerHTML='<span>'+m+'</span>';clearTimeout(toast.h);toast.h=setTimeout(()=>e.innerHTML='',ms)}
+function banner(m,ms=2600){const b=$('banner');b.textContent=m;clearTimeout(banner.h);banner.h=setTimeout(()=>b.textContent='',ms)}
+function blackout(hold,mid,after){
+  lock=true;const f=$('fade');f.style.transition='opacity .2s';f.style.opacity=1;
+  setTimeout(()=>{mid&&mid();f.style.opacity=0;setTimeout(()=>{lock=false;after&&after()},250)},hold);
+}
+function setScene(n,x,z,rot,y){
+  for(const k in SCN)SCN[k].g.visible=false;
+  SN=n;const sc=SCN[n];sc.g.visible=true;
+  amb.intensity=sc.light[0];hemi.intensity=sc.light[1];sun.intensity=sc.light[2];
+  renderer.setClearColor(sc.bg);scene3.fog=sc.indoor?null:new THREE.Fog(sc.bg,45,140);
+  inCar=false;player.g.visible=true;setPose(player,'stand');
+  faceA=rot||0;player.g.rotation.set(0,faceA,0);player.g.position.set(x,0,z);mode='walk';
+  yaw=(y!==undefined)?y:(sc.indoor?faceA+Math.PI:0);
+  updateCam(1,true);
+}
+function sitAt(x,z,rot){setPose(player,'sit');player.g.rotation.set(0,rot,0);player.g.position.set(x,-.42,z);faceA=rot;mode='sit'}
+function standUp(x,z,rot){setPose(player,'stand');player.g.rotation.set(0,rot,0);player.g.position.set(x,0,z);faceA=rot;mode='walk'}
+
+/* ============ МЕНЮ ============ */
+let menuOpts=null;
+function openMenu(title,opts){
+  lock=true;modalOpen=true;menuOpts=opts;for(const k in keys)keys[k]=false;
+  freeMouse();
+  const m=$('modal');m.hidden=false;
+  m.innerHTML='<div class="card"><h2>'+title+'</h2><div class="opts">'+opts.map((o,i)=>'<button class="opt" data-i="'+i+'"><div class="chips">'+o.chips.map(c=>'<span class="chip" style="background:'+c+'"></span>').join('')+'</div><div>'+(i+1)+'. '+o.label+'</div><small>'+o.sub+'</small></button>').join('')+'</div><button class="btn" id="mcancel" style="background:#444;color:#fff">Отмена (Esc)</button></div>';
+  m.querySelectorAll('.opt').forEach((b,i)=>b.onclick=()=>pick(i));
+  $('mcancel').onclick=closeMenu;
+}
+function pick(i){const o=menuOpts&&menuOpts[i];if(!o)return;closeMenu();o.run();}
+function closeMenu(){modalOpen=false;lock=false;$('modal').hidden=true;menuOpts=null;lockMouse()}
+function wardrobe(){
+  openMenu('Что надеть?',[
+    {label:'Классический костюм',sub:'чёрный пиджак и брюки',chips:['#1b1b22','#ffffff','#a01c1c'],run:()=>{S.outfit='suit';applyLook(player,S.outfit,S.shoes);toast('Надет чёрный костюм. Посмотри в зеркало!')}},
+    {label:'Джинсы и футболка',sub:'серые джинсы, белая футболка',chips:['#7b838d','#f2f2f2'],run:()=>{S.outfit='casual';applyLook(player,S.outfit,S.shoes);toast('Надеты серые джинсы и футболка. Посмотри в зеркало!')}}]);
+}
+function shoesMenu(){
+  if(!S.outfit)return toast('Сначала оденься — шкаф рядом с кроватью.');
+  openMenu('Какую обувь надеть?',[
+    {label:'Чёрные туфли',sub:'классика',chips:['#0d0d0d'],run:()=>{S.shoes='black';applyLook(player,S.outfit,S.shoes);toast('Надеты чёрные туфли. Можно выходить!')}},
+    {label:'Белые кроссовки',sub:'удобно и стильно',chips:['#fafafa'],run:()=>{S.shoes='white';applyLook(player,S.outfit,S.shoes);toast('Надеты белые кроссовки. Можно выходить!')}}]);
+}
+function mirror(){
+  if(!S.outfit)return toast('В зеркале ты в пижаме. Сначала выбери одежду в шкафу.');
+  S.mirrored=true;mode='mirror';standUp(.9,-1.6,0);mode='mirror';
+  $('mirbar').hidden=false;
+}
+function mirrorClose(){$('mirbar').hidden=true;mode='walk';player.g.position.set(.9,0,-1.5);faceA=0;yaw=0}
+$('mirclose').onclick=mirrorClose;
+
+/* ============ КОМПЬЮТЕР ============ */
+const pc=$('pc'),s1=$('s1'),s2=$('s2'),cur=$('cursor');
+const chats=[
+ {n:'Руководитель',m:[['o','Добро пожаловать в команду, '+HERO.name+'! Сегодня твой первый рабочий день.']]},
+ {n:'Азиз (коллега)',m:[['o','Привет! Если что — я за соседним столом.']]},
+ {n:'Поддержка',m:[['o','Здравствуйте! Чем можем помочь?']]}];
+let curChat=0;
+const replies=['Принято 👍','Хорошо, понял.','Отлично, спасибо!','Давай обсудим после обеда.','Супер, так и сделаем.','Ха-ха, согласен :)'];
+function openPC(){
+  lock=true;pc.hidden=false;cur.hidden=true;for(const k in keys)keys[k]=false;
+  freeMouse(); // за компьютером мышь свободна, камера на паузе
+  if(S.logged){$('pwr').hidden=true;s2.className='scr wall';s2.innerHTML='<b>beeline</b>';showDesktop(!S.chatOpened);}
+  else{$('pwr').hidden=false;s1.className='scr off';s1.innerHTML='';s2.className='scr off';s2.innerHTML='';}
+}
+function closePC(){
+  pc.hidden=true;lock=false;cur.hidden=true;clearTimeout(closePC.a);clearTimeout(closePC.b);clearTimeout(closePC.c);
+  standUp(OWN[0],OWN[1]+1.9,0);
+  lockMouse();
+}
+$('pcexit').onclick=closePC;
+$('pwr').onclick=()=>{
+  $('pwr').hidden=true;
+  s2.className='scr wall';s2.innerHTML='<b>beeline</b>';
+  s1.className='scr';s1.innerHTML='<div class="boot">beeline<i></i></div>';
+  setTimeout(showLogin,1800);
+};
+function showLogin(){
+  s1.innerHTML='<div class="login"><form id="lf"><b>beeline</b><div>Вход в систему</div><input id="ls" placeholder="Фамилия ('+HERO.surname+')" autocomplete="off"><input id="ln" placeholder="Имя ('+HERO.name+')" autocomplete="off"><div class="err" id="le"></div><button>Войти</button></form></div>';
+  $('ls').focus();
+  $('lf').onsubmit=e=>{
+    e.preventDefault();
+    const a=$('ls').value.trim().toLowerCase(),b=$('ln').value.trim().toLowerCase();
+    if(a===HERO.surname.toLowerCase()&&b===HERO.name.toLowerCase()){
+      S.logged=true;
+      s1.innerHTML='<div class="boot" style="font-size:1.4em;text-align:center">Добро пожаловать,<br>'+HERO.name+' '+HERO.surname+'</div>';
+      setTimeout(()=>showDesktop(true),1500);
+    } else $('le').textContent='Неверные данные. Введите: '+HERO.surname+' '+HERO.name;
+  };
+}
+function showDesktop(animate){
+  s1.className='scr';
+  s1.innerHTML='<div class="desk"><div class="icon" id="ic"><div>💬</div>Beeline Чаты</div><div class="tb"><b>beeline</b><span>👤 '+HERO.surname+' '+HERO.name+'</span><span id="clk"></span></div></div>';
+  const d=new Date();$('clk').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  $('ic').ondblclick=showChat;
+  if(!animate){showChat();return;}
+  const pr=pc.getBoundingClientRect(),r2=s2.getBoundingClientRect();
+  cur.hidden=false;cur.style.transition='none';
+  cur.style.left=(r2.left-pr.left+r2.width/2)+'px';cur.style.top=(r2.top-pr.top+r2.height/2)+'px';
+  closePC.a=setTimeout(()=>{
+    const ir=$('ic').getBoundingClientRect();
+    cur.style.transition='';cur.style.left=(ir.left-pr.left+ir.width/2)+'px';cur.style.top=(ir.top-pr.top+ir.height/2)+'px';
+  },700);
+  closePC.b=setTimeout(()=>{cur.classList.add('click');setTimeout(()=>cur.classList.remove('click'),150);setTimeout(()=>{cur.classList.add('click');setTimeout(()=>cur.classList.remove('click'),150)},220)},2500);
+  closePC.c=setTimeout(()=>{cur.hidden=true;showChat();},3100);
+}
+function showChat(){
+  S.chatOpened=true;cur.hidden=true;
+  const desk=s1.querySelector('.desk');
+  const w=document.createElement('div');w.className='win';
+  w.innerHTML='<div class="wh"><b>💬 Beeline Чаты</b><span id="wx">✕</span></div><div class="wb"><div class="side" id="sd"></div><div class="main"><div class="msgs" id="msgs"></div><div class="inp"><input id="cin" placeholder="Напишите сообщение..." autocomplete="off"><button id="csend">➤</button></div></div></div>';
+  desk.appendChild(w);
+  $('wx').onclick=()=>w.remove();
+  const renderSide=()=>{$('sd').innerHTML=chats.map((c,i)=>'<div class="'+(i===curChat?'on':'')+'" data-i="'+i+'">'+c.n+'</div>').join('');$('sd').querySelectorAll('div').forEach(d=>d.onclick=()=>{curChat=+d.dataset.i;renderSide();renderMsgs();$('cin').focus()})};
+  const renderMsgs=()=>{const el=$('msgs');el.innerHTML=chats[curChat].m.map(m=>'<div class="m '+m[0]+'"></div>').join('');[...el.children].forEach((d,i)=>d.textContent=chats[curChat].m[i][1]);el.scrollTop=1e6};
+  const send=()=>{const v=$('cin').value.trim();if(!v)return;const ci=curChat;chats[ci].m.push(['me',v]);$('cin').value='';renderMsgs();
+    setTimeout(()=>{chats[ci].m.push(['o',replies[Math.floor(Math.random()*replies.length)]]);if(curChat===ci&&document.getElementById('msgs'))renderMsgs();},900+Math.random()*700)};
+  $('csend').onclick=send;$('cin').onkeydown=e=>{if(e.key==='Enter')send()};
+  renderSide();renderMsgs();$('cin').focus();
+}
+
+/* ============ ЭКРАНЫ, БУДИЛЬНИК ============ */
+let alarmTimer=null,actx=null;
+function showTitle(){
+  const s=$('screen');s.hidden=false;s.style.background='linear-gradient(#1a2038,#05060c)';
+  s.innerHTML='<div style="font-size:3.2em;font-weight:800;color:#ffcc00">ОДИН ДЕНЬ ДОСТОНА 3D</div><div style="margin:.4em 0 1.6em;color:#ccd;font-size:1.2em">Игра про утро, учёбу и первый рабочий день</div><button class="btn" id="startb" style="font-size:1.4em">Начать (Enter)</button><div style="position:absolute;bottom:1em;color:#889;font-size:.85em;padding:0 1em">WASD — ходить · Shift — бежать · мышь — камера (без нажатий, после клика по экрану) · E — действие · Пробел — особое действие · 1/2 — выбор в меню · Esc — освободить курсор</div>';
+  $('startb').onclick=()=>onPress('Enter');
+}
+function beep(){try{const o=actx.createOscillator(),g=actx.createGain();o.type='square';o.frequency.value=880;g.gain.value=.08;o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.12)}catch(e){}}
+function startAlarm(){
+  try{actx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}
+  phase='alarm';beep();alarmTimer=setInterval(()=>{beep();setTimeout(beep,180)},700);
+  const s=$('screen');s.style.background='#000';
+  s.innerHTML='<div style="font-size:2em;color:#ff6b6b;margin-bottom:.4em">⏰ БИП-БИП-БИП!</div><div id="clock" style="font-size:7em;font-weight:800;color:#ff3b3b;background:#161616;padding:.1em .4em;border-radius:.2em">06:30</div><div style="margin-top:1.2em;font-size:1.6em">Нажмите ПРОБЕЛ, чтобы выключить будильник</div>';
+  const clk=$('clock');let n=0;alarmTimer2=setInterval(()=>{n++;clk.style.transform='translate('+((n%2)*8-4)+'px,0)'},60);
+}
+let alarmTimer2=null;
+function wake(){
+  clearInterval(alarmTimer);clearInterval(alarmTimer2);phase='play';lock=true;lockMouse();
+  const f=$('fade');f.style.transition='opacity .3s';f.style.opacity=1;$('screen').hidden=true;
+  setTimeout(()=>{
+    setScene('room',-3,-.55,0,0);mode='lie';
+    player.g.rotation.set(-Math.PI/2,0,0);player.g.position.set(-3,.8,-.55);
+    f.style.opacity=0;banner('Вы проснулись...',2200);
+    setTimeout(()=>{standUp(-1.6,.3,Math.PI/2);yaw=Math.PI/2+Math.PI;lock=false;toast('Подойди к шкафу и выбери, что надеть (E).',4500)},2600);
+  },700);
+}
+
+/* ============ ВВОД ============ */
+function nearest(){
+  const sc=SCN[SN];if(!sc)return null;let best=null,bd=1e9;
+  const p=player.g.position;
+  for(const o of sc.objs()){const d=Math.hypot(p.x-o.x,p.z-o.z);if(d<=(o.r||1.2)&&d<bd){bd=d;best=o}}
+  return best;
+}
+function onPress(code){
+  if(phase==='title'){if(code==='Enter'||code==='Space')startAlarm();return;}
+  if(phase==='alarm'){if(code==='Space')wake();return;}
+  if(mode==='mirror'){if(code==='KeyE'||code==='Space'||code==='Escape'||code==='Enter')mirrorClose();return;}
+  if(SN==='class'&&mode==='sit'&&code==='Space'){nap();return;}
+  if(code==='KeyE'||code==='Enter'){const o=nearest();if(o)o.act();}
+}
+addEventListener('keydown',e=>{
+  if(!pc.hidden){if(e.code==='Escape')closePC();return;}
+  if(modalOpen){
+    if(e.code==='Escape')closeMenu();
+    else if(menuOpts&&menuOpts.length&&(e.code==='Digit1'||e.code==='Digit2'))pick(e.code==='Digit1'?0:1);
+    return;}
+  keys[e.code]=true;
+  if(['Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();
+  if(e.repeat)return;
+  if(lock&&mode!=='mirror')return;
+  onPress(e.code);
+});
+addEventListener('keyup',e=>{keys[e.code]=false});
+// камера: мышь управляет ею без нажатий (захват курсора), на телефоне — перетаскивание
+const dom=renderer.domElement;let drag=null;
+const isLocked=()=>document.pointerLockElement===dom;
+function lockMouse(){
+  if(phase!=='play'||!pc.hidden||modalOpen)return;
+  try{const p=dom.requestPointerLock&&dom.requestPointerLock();if(p&&p.catch)p.catch(()=>{});}catch(e){}
+}
+function freeMouse(){try{document.exitPointerLock&&document.exitPointerLock()}catch(e){}}
+document.addEventListener('mousemove',e=>{
+  if(!isLocked()||!pc.hidden||modalOpen)return;
+  yaw-=e.movementX*.0025;pitch=clamp(pitch+e.movementY*.002,-.05,1.25);
+});
+dom.addEventListener('click',()=>{if(!isLocked())lockMouse()});
+dom.addEventListener('pointerdown',e=>{if(isLocked())return;drag={x:e.clientX,y:e.clientY};try{dom.setPointerCapture(e.pointerId)}catch(_){}});
+dom.addEventListener('pointermove',e=>{if(!drag)return;yaw-=(e.clientX-drag.x)*.007;pitch=clamp(pitch+(e.clientY-drag.y)*.005,-.05,1.25);drag.x=e.clientX;drag.y=e.clientY});
+dom.addEventListener('pointerup',()=>{drag=null});
+dom.addEventListener('pointercancel',()=>{drag=null});
+// экранные кнопки
+const hold=(id,code)=>{const b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();keys[code]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[code]=false))};
+hold('bw','KeyW');hold('ba','KeyA');hold('bs','KeyS');hold('bd','KeyD');
+$('be').addEventListener('pointerdown',e=>{e.preventDefault();if(pc.hidden&&!modalOpen&&(!lock||mode==='mirror'))onPress('KeyE')});
+$('bsp').addEventListener('pointerdown',e=>{e.preventDefault();if(pc.hidden&&!modalOpen&&!lock)onPress('Space')});
+
+/* ============ ДВИЖЕНИЕ И КАМЕРА ============ */
+function collide(sc,pos,r){
+  for(const b of sc.col){
+    const cx=clamp(pos.x,b.x1,b.x2),cz=clamp(pos.z,b.z1,b.z2),dx=pos.x-cx,dz=pos.z-cz,d2=dx*dx+dz*dz;
+    if(d2<r*r){
+      if(d2>1e-6){const d=Math.sqrt(d2);pos.x=cx+dx/d*r;pos.z=cz+dz/d*r;}
+      else{const l=pos.x-b.x1,rr=b.x2-pos.x,tt=pos.z-b.z1,bt=b.z2-pos.z,m=Math.min(l,rr,tt,bt);
+        if(m===l)pos.x=b.x1-r;else if(m===rr)pos.x=b.x2+r;else if(m===tt)pos.z=b.z1-r;else pos.z=b.z2+r;}
+    }
+  }
+  pos.x=clamp(pos.x,sc.b.x1+r,sc.b.x2-r);pos.z=clamp(pos.z,sc.b.z1+r,sc.b.z2-r);
+}
+function movePlayer(dt,sc){
+  const f=(keys.KeyW?1:0)-(keys.KeyS?1:0),r=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+  if(!f&&!r)return false;
+  let mx=-Math.sin(yaw)*f+Math.cos(yaw)*r,mz=-Math.cos(yaw)*f-Math.sin(yaw)*r;
+  const l=Math.hypot(mx,mz);mx/=l;mz/=l;
+  const sp=(keys.ShiftLeft||keys.ShiftRight)?5.2:3.2,p=player.g.position;
+  p.x+=mx*sp*dt;p.z+=mz*sp*dt;collide(sc,p,.35);
+  faceA=Math.atan2(mx,mz);return true;
+}
+function updateCam(dt,snap){
+  const sc=SCN[SN];if(!sc)return;
+  const p=player.g.position;let d,py,tx=p.x,tz=p.z,dx,dy,dz,ex,ey,ez;
+  if(mode==='mirror'){ex=.9;ey=1.5;ez=.75;tx=.9;tz=-1.6;py=1.25;}
+  else{
+    d=inCar?7:mode==='sit'?3.2:sc.indoor?3.6:5;py=mode==='lie'?.8:inCar?1:1.35;
+    const cp=Math.cos(pitch),sp=Math.sin(pitch);
+    ex=tx+Math.sin(yaw)*cp*d;ey=py+sp*d;ez=tz+Math.cos(yaw)*cp*d;
+  }
+  if(sc.indoor){ex=clamp(ex,sc.b.x1+.25,sc.b.x2-.25);ez=clamp(ez,sc.b.z1+.25,sc.b.z2-.25);ey=clamp(ey,.4,sc.H-.25);}
+  else ey=Math.max(.5,ey);
+  const k=snap?1:1-Math.pow(.0008,dt);
+  camera.position.x+=(ex-camera.position.x)*k;camera.position.y+=(ey-camera.position.y)*k;camera.position.z+=(ez-camera.position.z)*k;
+  camera.lookAt(tx,py,tz);
+}
+
+/* ============ ЦЕЛИ / ПОДСКАЗКИ ============ */
+const arrow=new THREE.Mesh(new THREE.ConeGeometry(.22,.5,12),new THREE.MeshBasicMaterial({color:0xffcc00}));
+arrow.rotation.x=Math.PI;arrow.visible=false;scene3.add(arrow);
+
+/* ============ ЦИКЛ ============ */
+buildRoom();buildGarage();buildStreet('inst');buildStreet('bee');buildClass();buildOffice();
+showTitle();
+let last=performance.now();
+function tick(now){
+  requestAnimationFrame(tick);
+  const dt=Math.min(.05,(now-last)/1000);last=now;t=now/1000;
+  const sc=SCN[SN];
+  let moving=false;
+  if(phase==='play'&&sc){
+    const free=pc.hidden&&!modalOpen;
+    if(free){
+      if(keys.ArrowLeft)yaw+=1.8*dt;if(keys.ArrowRight)yaw-=1.8*dt;
+      if(keys.ArrowUp)pitch=clamp(pitch-1.2*dt,-.05,1.25);if(keys.ArrowDown)pitch=clamp(pitch+1.2*dt,-.05,1.25);
+    }
+    if(!lock&&free&&mode==='walk'&&!inCar)moving=movePlayer(dt,sc);
+    if(mode==='walk'||mode==='mirror')player.g.rotation.y=angLerp(player.g.rotation.y,faceA,Math.min(1,dt*12));
+    animWalk(player,t,moving,dt);
+    blob.visible=player.g.visible&&mode!=='lie';
+    blob.position.set(player.g.position.x,.035,player.g.position.z);
+    updateCam(dt,false);
+    // HUD
+    const gl=sc.goal();const ge=$('goal');
+    if(gl&&gl[0]&&!lock){ge.hidden=false;const txt='Цель: '+gl[0];if(ge.textContent!==txt)ge.textContent=txt;}else ge.hidden=true;
+    if(gl&&gl[1]!==null&&gl[1]!==undefined&&!lock&&!inCar&&mode==='walk'){arrow.visible=true;arrow.position.set(gl[1],gl[3]+Math.sin(t*4)*.12,gl[2]);arrow.rotation.y=t*2;}else arrow.visible=false;
+    let pr='';
+    if(!lock&&free){
+      if(SN==='class'&&mode==='sit')pr='<span>Пробел — Поспать на паре</span>';
+      else if(mode==='walk'){const o=nearest();if(o)pr='<span>E — '+o.label+'</span>';}
+    }
+    const pe=$('prompt');if(pe.dataset.v!==pr){pe.dataset.v=pr;pe.innerHTML=pr;}
+    const needHint=free&&!isLocked()&&!('ontouchstart' in window);
+    if($('lockhint').hidden===needHint)$('lockhint').hidden=!needHint;
+  }else{blob.visible=false;arrow.visible=false;}
+  renderer.render(scene3,camera);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
